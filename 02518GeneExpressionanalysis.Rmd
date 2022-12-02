@@ -1,0 +1,113 @@
+---
+title: "02-518 Project"
+author: "Raehash Shah"
+date: "2022-11-30"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Load Data
+
+```{r}
+#train_data <- read.csv("Geneticdata/train/train_mod.csv")
+#train_data_metadata <- read.csv("Geneticdata/train/Train_metadata_mod.csv")
+
+
+test_data <- read.csv("Geneticdata/test/test_mod.csv")
+test_data_metadata <- read.csv("Geneticdata/test/Test_metadata_mod.csv")
+
+
+#genetic_data <- train_data
+genetic_data <- test_data
+genetic_data <- genetic_data[!duplicated(as.list(genetic_data))]
+raw_gdata <- genetic_data[,2:ncol(genetic_data)]
+
+#metadata <- train_data_metadata
+metadata <- test_data_metadata
+metadata <- metadata[!duplicated(metadata),]
+```
+
+Removed duplicates in the samples
+
+
+# Filter Data
+
+```{r}
+#if (!require("BiocManager", quietly = TRUE))
+#    install.packages("BiocManager")
+#BiocManager::install("genefilter")
+library("genefilter")
+f1 <- kOverA(ncol(raw_gdata) - 0.1*ncol(raw_gdata), 2)
+ffun1 <- filterfun(f1)
+wh1 <- genefilter(raw_gdata, f1)
+sum(wh1)
+genetic_data_filt <- genetic_data[which(wh1),]
+```
+
+For microarray data, the most common method is this genefilter with kOverA where we count only genes who have a count above 2 for 90% of the data. This made us remove about 5,000 genes. (From 48157 genes to 4,3625 genes for train, 48157 genes to 43542 genes for test)
+
+```{r}
+#write.csv(genetic_data_filt, "Geneticdata/train/train_filtered.csv", row.names = FALSE)
+#write.csv(metadata, "Geneticdata/train/train_metadata_filtered.csv", row.names = FALSE)
+
+write.csv(genetic_data_filt, "Geneticdata/test/test_filtered.csv", row.names = FALSE)
+write.csv(metadata, "Geneticdata/test/test_metadata_filtered.csv", row.names = FALSE)
+
+```
+
+save it in csv file to move to python
+
+# Distribution of Data
+
+```{r}
+barplot(table(metadata))
+```
+
+# Hierarchical clustering
+
+We can perform hierarchical clustering to analyze how well our data is split into our different labels in terms of our gene expression data. 
+
+```{r}
+hier_clust <- hclust(dist(t(genetic_data)), method = "complete")
+```
+
+
+```{r}
+plot(hier_clust, labels = FALSE, xlab = "Clustering with complete linkage")
+abline(h = 152, col = "red")
+```
+
+Best choice in terms of our dendrogram is about 5 clusters which is what we expected based on our labels given to us for the images. 
+
+```{r}
+hier_clust_cut <- cutree(hier_clust, 5)
+table(hier_clust_cut, metadata[,2])
+```
+
+Here results aren't great but we can adjust the method in the dendogram to get better separation of the data into the clusters. (Unless we decrease our threshold in this complete)
+
+
+# K Means Clustering
+
+```{r}
+#install.packages('factoextra')
+library('factoextra')
+kmeans_df <- scale(t(genetic_data))
+k2 <- kmeans(kmeans_df, centers = 5, nstart = 25)
+```
+
+```{r}
+fviz_cluster(k2, data = kmeans_df, geom="point")
+```
+
+Similar to the hierarchical clustering we can see that some of the clusters have major overlaps leading to difficulties in classifying those types of images based on genetic data however, we hope CNN can improve on separating some of the features in the image to classify each image type. 
+
+# GSEA
+
+
+
+
+
